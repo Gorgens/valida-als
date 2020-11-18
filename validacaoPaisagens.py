@@ -296,7 +296,7 @@ hmean.setCrs(crs)
 QgsProject.instance().addMapLayer(hmean)
 
 
-## Extrair Hmax
+## Calcular CHM
 try:
     subprocess.call(FUSION_FOLDER + '/CanopyModel /ground:' + VALIDA_FOLDER + '/' + 'mdtCriado.dtm' +
                     ' /ascii ' + VALIDA_FOLDER + '/' + 'chmCriado.dtm 1 m m 1 0 0 0 ' +
@@ -306,29 +306,8 @@ except OSError:
 else:
    print('Etapa 17 de 18. CHM criado com sucesso.')
 
-## Unir tiles do Hmax
-try:
-    mdts = []
-    for filename in os.listdir(VALIDA_FOLDER):
-        if filename.endswith("_max.asc"):
-            mdts.append(os.path.join(VALIDA_FOLDER+'/'+filename))
-    processing.run("gdal:merge", {'INPUT':mdts,
-                             'PCT':False,
-                             'SEPARATE':False,
-                             'NODATA_INPUT':None,
-                             'NODATA_OUTPUT':-9999, #Prevous None
-                             'OPTIONS':'',
-                             'EXTRA':'',
-                             'DATA_TYPE':5,
-                             'OUTPUT':VALIDA_FOLDER + '/' + 'hmax.tif'})
-except OSError:
-    print('Etapa 18 de 18. União de Hmax falhou.')
-else:
-    print('Etapa 18 de 18. Hmax unido com sucesso.')
-
-
-hmax = QgsRasterLayer(VALIDA_FOLDER + '/' + 'hmax.tif', "hmax")
-hmax.setCrs(crs)
-QgsProject.instance().addMapLayer(hmax)      
+chm = QgsRasterLayer(VALIDA_FOLDER + '/' + 'chmCriado.asc', "chm")
+chm.setCrs(crs)
+QgsProject.instance().addMapLayer(chm)
 
 print('Finalizado processamento da área %s.' % PROJETO)                     
