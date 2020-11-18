@@ -1,4 +1,4 @@
-## Para chamar este script: exec(open('C:/FUSION/TAN_A01/validacaoPaisagens.py'.encode('utf-8')).read())
+## Para chamar este script: exec(open('C:/FUSION/ST1_A01/validacaoPaisagens.py'.encode('utf-8')).read())
 
 import subprocess
 import os
@@ -6,17 +6,19 @@ import os
 FUSION_FOLDER = 'C:/FUSION'
 LASTOOLS_FOLDER = 'C:/LAStools/bin'
 
-NP_FOLDER = "C:/FUSION/TAN_A01/NP"
-NP_DTM_FOLDER = "C:/FUSION/TAN_A01/NP_MDT"
-DTM_FOLDER = "C:/FUSION/TAN_A01/MDT"
-DTM_PREVIOUS = "C:/FUSION/TAN_A01/MDT_ANTERIOR"
+NP_FOLDER = "C:/FUSION/ST1_A01/NP1"
+NP_DTM_FOLDER = "C:/FUSION/ST1_A01/NP_MDT1"
+DTM_FOLDER = "C:/FUSION/ST1_A01/MDT1"
+DTM_PREVIOUS = "C:/FUSION/ST1_A01/MDT_ANTERIOR1" #None
 
-VALIDA_FOLDER = 'C:/FUSION/TAN_A01/check'
-PROJETO = 'TAN_A01'
+VALIDA_FOLDER = 'C:/FUSION/ST1_A01/check1'
+PROJETO = 'ST1_A01'
 crs = QgsCoordinateReferenceSystem("EPSG:31982")
 
 print('Iniciando processamento da área %s.' % PROJETO)
 
+
+########################################################################################
 ## Criar pasta para projeto 
 try:
    os.mkdir(VALIDA_FOLDER)
@@ -26,6 +28,7 @@ else:
    print ("Etapa 1 de 18. Diretório criado com sucesso.")
 
 
+########################################################################################
 ## Rodar FUSION::Catalog [switches] datafile [catalogfile]
 try:
    subprocess.call(FUSION_FOLDER + '/Catalog /drawtiles /countreturns /density:1,4,8 ' +
@@ -48,6 +51,7 @@ else:
    print('Etapa 3 de 18. Lasinfo criado com sucesso.')
 
 
+########################################################################################
 ## Computar densidade: ReturnDensity [switches] outputfile cellsize datafile1
 try:
     subprocess.call(FUSION_FOLDER + '/ReturnDensity /ascii ' +
@@ -62,12 +66,14 @@ density = QgsRasterLayer(VALIDA_FOLDER + '/' + 'density.asc', 'density')
 density.setCrs(crs)
 QgsProject.instance().addMapLayer(density)
 
+
+########################################################################################
 ## Cria máscara de densidade inferior a 4 pts
 try:
     parameters = {'INPUT_A' : VALIDA_FOLDER + '/' + 'density.asc',
             'BAND_A' : 1,
             'FORMULA' : '(A <= 4)',
-            'OUTPUT' : VALIDA_FOLDER + '/' + 'maskBellow4pts2.tif'}
+            'OUTPUT' : VALIDA_FOLDER + '/' + 'maskBellow4pts.tif'}
 
     processing.run('gdal:rastercalculator', parameters)
 except OSError:
@@ -75,10 +81,12 @@ except OSError:
 else:
    print('Etapa 5 de 18. Máscara criada com sucesso.')
 
-maskBellow4pts = QgsRasterLayer(VALIDA_FOLDER + '/' + 'maskBellow4pts2.tif', 'maskBellow4pts')
+maskBellow4pts = QgsRasterLayer(VALIDA_FOLDER + '/' + 'maskBellow4pts.tif', 'maskBellow4pts')
 maskBellow4pts.setCrs(crs)
 QgsProject.instance().addMapLayer(maskBellow4pts)
 
+
+########################################################################################
 ## Computar densidade de primeiros retornos: ReturnDensity [switches] outputfile cellsize datafile1
 try:
     subprocess.call(FUSION_FOLDER + '/ReturnDensity /first /ascii ' +
@@ -93,6 +101,8 @@ densityFirst = QgsRasterLayer(VALIDA_FOLDER + '/' + 'densityFirst.asc', 'density
 densityFirst.setCrs(crs)
 QgsProject.instance().addMapLayer(densityFirst)      
 
+
+########################################################################################
 ## Cria máscara para sem primeiro retornos
 try:
     parameters = {'INPUT_A' : VALIDA_FOLDER + '/' + 'densityFirst.asc',
@@ -110,6 +120,8 @@ maskNoFirst = QgsRasterLayer(VALIDA_FOLDER + '/' + 'maskNoFirst.tif', 'maskNoFir
 maskNoFirst.setCrs(crs)
 QgsProject.instance().addMapLayer(maskNoFirst)
 
+
+########################################################################################
 ## Unir DTM entregue
 try:
     mdts = []
@@ -135,7 +147,8 @@ mdtEntregue.setCrs(crs)
 QgsProject.instance().addMapLayer(mdtEntregue)
 
 
-## Computar hillshade
+########################################################################################
+## Computar hillshade do DTM entregue
 try:
     processing.run("native:hillshade", {'INPUT':VALIDA_FOLDER + '/' + 'mdtEntregue.tif',
                                         'Z_FACTOR':3,
@@ -152,6 +165,7 @@ mdtHillshade.setCrs(crs)
 QgsProject.instance().addMapLayer(mdtHillshade)
 
 
+########################################################################################
 ## Gerar o modelo digital de terreno a partir da nuvem entregue
 try:
    subprocess.call(FUSION_FOLDER + '/GridSurfaceCreate ' +
@@ -171,50 +185,54 @@ mdtCriado.setCrs(crs)
 QgsProject.instance().addMapLayer(mdtCriado)
 
 
-## Unir tiles do DTM antigo
-try:
-    mdts = []
-    for filename in os.listdir(DTM_PREVIOUS):
-        if filename.endswith(".grd"):
-            mdts.append(os.path.join(DTM_PREVIOUS+'/'+filename))
-    processing.run("gdal:merge", {'INPUT':mdts,
-                             'PCT':False,
-                             'SEPARATE':False,
-                             'NODATA_INPUT':None,
-                             'NODATA_OUTPUT':-9999, #Prevous None
-                             'OPTIONS':'',
-                             'EXTRA':'',
-                             'DATA_TYPE':5,
-                             'OUTPUT':VALIDA_FOLDER + '/' + 'mdtAnterior.tif'})
-except OSError:
-    print('Etapa 11 de 18. União dos MDTs antigos falhou')
-else:
-    print('Etapa 11 de 18. MDTs antigos unidos com sucesso.')
+########################################################################################
+# Unir tiles do DTM antigo
+if DTM_PREVIOUS is not None:
+    try:
+        mdts = []
+        for filename in os.listdir(DTM_PREVIOUS):
+            if filename.endswith(".grd"):
+                mdts.append(os.path.join(DTM_PREVIOUS+'/'+filename))
+        processing.run("gdal:merge", {'INPUT':mdts,
+                                 'PCT':False,
+                                 'SEPARATE':False,
+                                 'NODATA_INPUT':None,
+                                 'NODATA_OUTPUT':-9999, #Prevous None
+                                 'OPTIONS':'',
+                                 'EXTRA':'',
+                                 'DATA_TYPE':5,
+                                 'OUTPUT':VALIDA_FOLDER + '/' + 'mdtAnterior.tif'})
+    except OSError:
+        print('Etapa 11 de 18. União dos MDTs antigos falhou')
+    else:
+        print('Etapa 11 de 18. MDTs antigos unidos com sucesso.')
 
-mdtAnterior = QgsRasterLayer(VALIDA_FOLDER + '/' + 'mdtAnterior.tif', "mdtAnterior")
-mdtAnterior.setCrs(crs)
-QgsProject.instance().addMapLayer(mdtAnterior)
+    mdtAnterior = QgsRasterLayer(VALIDA_FOLDER + '/' + 'mdtAnterior.tif', "mdtAnterior")
+    mdtAnterior.setCrs(crs)
+    QgsProject.instance().addMapLayer(mdtAnterior)
+
+    ########################################################################################
+    # Calcular diferença entre MDTs
+    try:
+       processing.run("saga:rastercalculator", {'GRIDS':mdtEntregue,
+                                                'XGRIDS': mdtAnterior, 
+                                                'FORMULA':'a-b',
+                                                'RESAMPLING':3,
+                                                'USE_NODATA':False,
+                                                'TYPE':7,
+                                                'RESULT': VALIDA_FOLDER + '/' + 'diffEntregueAnterior.tif'})
+    except OSError:
+       print('Etapa 12 de 18. Calculo da diferença MDT Entregue/Anterior falhou.')
+    else:
+       print('Etapa 12 de 18. Diferença MDT Entregue/Anterior calculado com sucesso.')
+        
+    diffEntregueAnterior = QgsRasterLayer(VALIDA_FOLDER + '/' + 'diffEntregueAnterior.sdat', 'diffEntregueAnterior')
+    diffEntregueAnterior.setCrs(crs)
+    QgsProject.instance().addMapLayer(diffEntregueAnterior)
 
 
-## Calcular diferença entre MDTs
-try:
-   processing.run("saga:rastercalculator", {'GRIDS':mdtEntregue,
-                                            'XGRIDS': mdtAnterior, 
-                                            'FORMULA':'a-b',
-                                            'RESAMPLING':3,
-                                            'USE_NODATA':False,
-                                            'TYPE':7,
-                                            'RESULT': VALIDA_FOLDER + '/' + 'diffEntregueAnterior.tif'})
-except OSError:
-   print('Etapa 12 de 18. Calculo da diferença MDT Entregue/Anterior falhou.')
-else:
-   print('Etapa 12 de 18. Diferença MDT Entregue/Anterior calculado com sucesso.')
-    
-diffEntregueAnterior = QgsRasterLayer(VALIDA_FOLDER + '/' + 'diffEntregueAnterior.sdat', 'diffEntregueAnterior')
-diffEntregueAnterior.setCrs(crs)
-QgsProject.instance().addMapLayer(diffEntregueAnterior)
-
-# Calcular histograma para a diferença entre DTM
+########################################################################################
+#Calcular histograma para a diferença entre DTM
 try:
     processing.run("qgis:rasterlayerhistogram",
                     {'INPUT':VALIDA_FOLDER + '/' + 'diffEntregueAnterior.sdat',
@@ -243,6 +261,8 @@ diffEntregueCriado = QgsRasterLayer(VALIDA_FOLDER + '/' + 'diffEntregueCriado.sd
 diffEntregueCriado.setCrs(crs)
 QgsProject.instance().addMapLayer(diffEntregueCriado)
 
+
+########################################################################################
 ## Calcula histograma para a diferença entre DTM
 try:
     processing.run("qgis:rasterlayerhistogram",
@@ -256,6 +276,7 @@ else:
    print('Etapa 14 de 18. Histograma da diferença Entregue/Criado computado com sucesso.')
 
 
+########################################################################################
 ## Extrair Hmean
 try:
     for filename in os.listdir(NP_FOLDER):
@@ -270,6 +291,8 @@ except OSError:
 else:
    print('Etapa 15 de 18. Hmean computado com sucesso.')
 
+
+########################################################################################
 ## Unir tiles do Hmean
 try:
     mdts = []
@@ -296,6 +319,7 @@ hmean.setCrs(crs)
 QgsProject.instance().addMapLayer(hmean)
 
 
+########################################################################################
 ## Calcular CHM
 try:
     subprocess.call(FUSION_FOLDER + '/CanopyModel /ground:' + VALIDA_FOLDER + '/' + 'mdtCriado.dtm' +
