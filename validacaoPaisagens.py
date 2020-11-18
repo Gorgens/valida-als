@@ -21,20 +21,20 @@ print('Iniciando processamento da área %s.' % PROJETO)
 try:
    os.mkdir(VALIDA_FOLDER)
 except OSError:
-   print ("Etapa 1 de 16. Criação do diretório falhou.")
+   print ("Etapa 1 de 18. Criação do diretório falhou.")
 else:
-   print ("Etapa 1 de 16. Diretório criado com sucesso.")
+   print ("Etapa 1 de 18. Diretório criado com sucesso.")
 
 
 ## Rodar FUSION::Catalog [switches] datafile [catalogfile]
 try:
-   subprocess.call(FUSION_FOLDER + '/Catalog /drawtiles /countreturns /density:5,4,8 ' +
+   subprocess.call(FUSION_FOLDER + '/Catalog /drawtiles /countreturns /density:1,4,8 ' +
                    NP_FOLDER + '/' + PROJETO + '*.las ' +
                    VALIDA_FOLDER + '/' + PROJETO +'catalog')
 except OSError:
-   print('Etapa 2 de 16. Catalog falhou.')
+   print('Etapa 2 de 18. Catalog falhou.')
 else:
-   print('Etapa 2 de 16. Catalog criado com sucesso.')
+   print('Etapa 2 de 18. Catalog criado com sucesso.')
 
 
 ## Rodar LASTOOLS::lasinfo
@@ -43,24 +43,72 @@ try:
                     NP_FOLDER + '/*.las -merged -odir ' + 
                     VALIDA_FOLDER + ' -o "report.txt" -cd -histo gps_time 20')
 except OSError:
-   print('Etapa 3 de 16. Lasinfo falhou.')
+   print('Etapa 3 de 18. Lasinfo falhou.')
 else:
-   print('Etapa 3 de 16. Lasinfo criado com sucesso.')
+   print('Etapa 3 de 18. Lasinfo criado com sucesso.')
 
 
 ## Computar densidade: ReturnDensity [switches] outputfile cellsize datafile1
 try:
     subprocess.call(FUSION_FOLDER + '/ReturnDensity /ascii ' +
-                    VALIDA_FOLDER + '/' + 'density.asc 5 ' +
+                    VALIDA_FOLDER + '/' + 'density.asc 1 ' +
                     NP_FOLDER + '/' + PROJETO + '*.las')
 except OSError:
-   print('Etapa 4 de 16. ReturnDensity falhou.')
+   print('Etapa 4 de 18. ReturnDensity falhou.')
 else:
-   print('Etapa 4 de 16. ReturnDensity criado com sucesso.')
+   print('Etapa 4 de 18. ReturnDensity criado com sucesso.')
 
-densidade = QgsRasterLayer(VALIDA_FOLDER + '/' + 'density.asc', 'densidade')
-densidade.setCrs(crs)
-QgsProject.instance().addMapLayer(densidade)   
+density = QgsRasterLayer(VALIDA_FOLDER + '/' + 'density.asc', 'density')
+density.setCrs(crs)
+QgsProject.instance().addMapLayer(density)
+
+## Cria máscara de densidade inferior a 4 pts
+try:
+    parameters = {'INPUT_A' : VALIDA_FOLDER + '/' + 'density.asc',
+            'BAND_A' : 1,
+            'FORMULA' : '(A <= 4)',
+            'OUTPUT' : VALIDA_FOLDER + '/' + 'maskBellow4pts2.tif'}
+
+    processing.run('gdal:rastercalculator', parameters)
+except OSError:
+   print('Etapa 5 de 18. Criação de máscara falhou.')
+else:
+   print('Etapa 5 de 18. Máscara criada com sucesso.')
+
+maskBellow4pts = QgsRasterLayer(VALIDA_FOLDER + '/' + 'maskBellow4pts2.tif', 'maskBellow4pts')
+maskBellow4pts.setCrs(crs)
+QgsProject.instance().addMapLayer(maskBellow4pts)
+
+## Computar densidade de primeiros retornos: ReturnDensity [switches] outputfile cellsize datafile1
+try:
+    subprocess.call(FUSION_FOLDER + '/ReturnDensity /first /ascii ' +
+                    VALIDA_FOLDER + '/' + 'densityFirst.asc 1 ' +
+                    NP_FOLDER + '/' + PROJETO + '*.las')
+except OSError:
+   print('Etapa 6 de 18. ReturnDensity falhou.')
+else:
+   print('Etapa 6 de 18. ReturnDensity criado com sucesso.')
+
+densityFirst = QgsRasterLayer(VALIDA_FOLDER + '/' + 'densityFirst.asc', 'densityFirst')
+densityFirst.setCrs(crs)
+QgsProject.instance().addMapLayer(densityFirst)      
+
+## Cria máscara para sem primeiro retornos
+try:
+    parameters = {'INPUT_A' : VALIDA_FOLDER + '/' + 'densityFirst.asc',
+            'BAND_A' : 1,
+            'FORMULA' : '(A = 0)',
+            'OUTPUT' : VALIDA_FOLDER + '/' + 'maskNoFirst.tif'}
+
+    processing.run('gdal:rastercalculator', parameters)
+except OSError:
+   print('Etapa 7 de 18. Criação de máscara NoFirst falhou.')
+else:
+   print('Etapa 7 de 18. Máscara NoFirst criada com sucesso.')
+
+maskNoFirst = QgsRasterLayer(VALIDA_FOLDER + '/' + 'maskNoFirst.tif', 'maskNoFirst')
+maskNoFirst.setCrs(crs)
+QgsProject.instance().addMapLayer(maskNoFirst)
 
 ## Unir DTM entregue
 try:
@@ -78,9 +126,9 @@ try:
                          'DATA_TYPE':5,
                          'OUTPUT':VALIDA_FOLDER + '/' + 'mdtEntregue.tif'})
 except OSError:
-   print('Etapa 5 de 16. União dos MDT entregues falhou.')
+   print('Etapa 8 de 18. União dos MDT entregues falhou.')
 else:
-   print('Etapa 5 de 16. União dos MDT realizada com sucesso.')
+   print('Etapa 8 de 18. União dos MDT realizada com sucesso.')
 
 mdtEntregue = QgsRasterLayer(VALIDA_FOLDER + '/' + 'mdtEntregue.tif', "mdtEntregue")
 mdtEntregue.setCrs(crs)
@@ -95,9 +143,9 @@ try:
                                         'V_ANGLE':40,
                                         'OUTPUT':VALIDA_FOLDER + '/' + 'mdtHillshade.tif'})
 except OSError:
-   print('Etapa 6 de 16. Hillshade falhou.')
+   print('Etapa 9 de 18. Hillshade falhou.')
 else:
-   print('Etapa 6 de 16. Hillshade criado com sucesso.')
+   print('Etapa 9 de 18. Hillshade criado com sucesso.')
    
 mdtHillshade = QgsRasterLayer(VALIDA_FOLDER + '/' + 'mdtHillshade.tif', 'mdtHillshade')
 mdtHillshade.setCrs(crs)
@@ -114,9 +162,9 @@ try:
                    VALIDA_FOLDER + '/' + 'mdtCriado.dtm ' +
                    VALIDA_FOLDER + '/' + 'mdtCriado.asc')
 except OSError:
-   print('Etapa 7 de 16. Criação do MDT falhou.')
+   print('Etapa 10 de 18. Criação do MDT falhou.')
 else:
-   print('Etapa 7 de 16. MDT criado com sucesso.')
+   print('Etapa 10 de 18. MDT criado com sucesso.')
 
 mdtCriado = QgsRasterLayer(VALIDA_FOLDER + '/' + 'mdtCriado.asc', "mdtCriado")
 mdtCriado.setCrs(crs)
@@ -139,9 +187,9 @@ try:
                              'DATA_TYPE':5,
                              'OUTPUT':VALIDA_FOLDER + '/' + 'mdtAnterior.tif'})
 except OSError:
-    print('Etapa 8 de 16. União dos MDTs antigos falhou')
+    print('Etapa 11 de 18. União dos MDTs antigos falhou')
 else:
-    print('Etapa 8 de 16. MDTs antigos unidos com sucesso.')
+    print('Etapa 11 de 18. MDTs antigos unidos com sucesso.')
 
 mdtAnterior = QgsRasterLayer(VALIDA_FOLDER + '/' + 'mdtAnterior.tif', "mdtAnterior")
 mdtAnterior.setCrs(crs)
@@ -158,9 +206,9 @@ try:
                                             'TYPE':7,
                                             'RESULT': VALIDA_FOLDER + '/' + 'diffEntregueAnterior.tif'})
 except OSError:
-   print('Etapa 9 de 16. Calculo da diferença MDT Entregue/Anterior falhou.')
+   print('Etapa 12 de 18. Calculo da diferença MDT Entregue/Anterior falhou.')
 else:
-   print('Etapa 9 de 16. Diferença MDT Entregue/Anterior calculado com sucesso.')
+   print('Etapa 12 de 18. Diferença MDT Entregue/Anterior calculado com sucesso.')
     
 diffEntregueAnterior = QgsRasterLayer(VALIDA_FOLDER + '/' + 'diffEntregueAnterior.sdat', 'diffEntregueAnterior')
 diffEntregueAnterior.setCrs(crs)
@@ -174,9 +222,9 @@ try:
                     'BINS':1000,
                     'OUTPUT':VALIDA_FOLDER + '/' + 'HistdiffEntregueAnterior.html'})
 except OSError:
-   print('Etapa 10 de 16. Histograma da diferença Entregue/Anterior falhou.')
+   print('Etapa 13 de 18. Histograma da diferença Entregue/Anterior falhou.')
 else:
-   print('Etapa 10 de 16. Histograma da diferença Entregue/Anterior computado com sucesso.')
+   print('Etapa 13 de 18. Histograma da diferença Entregue/Anterior computado com sucesso.')
    
 try:
    processing.run("saga:rastercalculator", {'GRIDS':mdtEntregue,
@@ -187,9 +235,9 @@ try:
                                             'TYPE':7,
                                             'RESULT': VALIDA_FOLDER + '/' + 'diffEntregueCriado.tif'})
 except OSError:
-   print('Etapa 11 de 16. Calculo da diferença MDT Entregue/Criado falhou.')
+   print('Etapa 11 de 18. Calculo da diferença MDT Entregue/Criado falhou.')
 else:
-   print('Etapa 11 de 16. Diferença MDT Entregue/Criado calculado com sucesso.')
+   print('Etapa 11 de 18. Diferença MDT Entregue/Criado calculado com sucesso.')
     
 diffEntregueCriado = QgsRasterLayer(VALIDA_FOLDER + '/' + 'diffEntregueCriado.sdat', 'diffEntregueCriado')
 diffEntregueCriado.setCrs(crs)
@@ -203,9 +251,9 @@ try:
                     'BINS':1000,
                     'OUTPUT':VALIDA_FOLDER + '/' + 'diffEntregueCriado.html'})
 except OSError:
-   print('Etapa 12 de 16. Histograma da diferença Entregue/Criado falhou.')
+   print('Etapa 14 de 18. Histograma da diferença Entregue/Criado falhou.')
 else:
-   print('Etapa 12 de 16. Histograma da diferença Entregue/Criado computado com sucesso.')
+   print('Etapa 14 de 18. Histograma da diferença Entregue/Criado computado com sucesso.')
 
 
 ## Extrair Hmean
@@ -218,9 +266,9 @@ try:
                            VALIDA_FOLDER + '/' + os.path.splitext(filename)[0]+'.asc ' +
                            os.path.join(NP_FOLDER+'/'+filename))
 except OSError:
-   print('Etapa 13 de 16. Hmean falhou.')
+   print('Etapa 15 de 18. Hmean falhou.')
 else:
-   print('Etapa 13 de 16. Hmean computado com sucesso.')
+   print('Etapa 15 de 18. Hmean computado com sucesso.')
 
 ## Unir tiles do Hmean
 try:
@@ -238,28 +286,25 @@ try:
                              'DATA_TYPE':5,
                              'OUTPUT':VALIDA_FOLDER + '/' + 'hmean.tif'})
 except OSError:
-    print('Etapa 14 de 16. União de Hmean falhou.')
+    print('Etapa 16 de 18. União de Hmean falhou.')
 else:
-    print('Etapa 14 de 16. Hmean unido com sucesso.')
+    print('Etapa 16 de 18. Hmean unido com sucesso.')
     
 
 hmean = QgsRasterLayer(VALIDA_FOLDER + '/' + 'hmean.tif', "hmean")
 hmean.setCrs(crs)
 QgsProject.instance().addMapLayer(hmean)
 
+
 ## Extrair Hmax
 try:
-    for filename in os.listdir(NP_FOLDER):
-        if filename.endswith(".las"):
-           # os.path.join(NP_FOLDER+'/'+filename)
-           subprocess.call(FUSION_FOLDER + '/GridMetrics /nointensity /nocsv /raster:max /ascii ' +
-                           VALIDA_FOLDER + '/' + 'mdtCriado.dtm 10 1 ' +
-                           VALIDA_FOLDER + '/' + os.path.splitext(filename)[0]+'.asc ' +
-                           os.path.join(NP_FOLDER+'/'+filename))
+    subprocess.call(FUSION_FOLDER + '/CanopyModel /ground:' + VALIDA_FOLDER + '/' + 'mdtCriado.dtm' +
+                    ' /ascii ' + VALIDA_FOLDER + '/' + 'chmCriado.dtm 1 m m 1 0 0 0 ' +
+                    NP_FOLDER + '/' + PROJETO + '*.las')
 except OSError:
-   print('Etapa 15 de 16. Hmax falhou.')
+   print('Etapa 17 de 18. CHM falhou.')
 else:
-   print('Etapa 15 de 16. Hmax computado com sucesso.')
+   print('Etapa 17 de 18. CHM criado com sucesso.')
 
 ## Unir tiles do Hmax
 try:
@@ -277,9 +322,9 @@ try:
                              'DATA_TYPE':5,
                              'OUTPUT':VALIDA_FOLDER + '/' + 'hmax.tif'})
 except OSError:
-    print('Etapa 16 de 16. União de Hmax falhou.')
+    print('Etapa 18 de 18. União de Hmax falhou.')
 else:
-    print('Etapa 16 de 16. Hmax unido com sucesso.')
+    print('Etapa 18 de 18. Hmax unido com sucesso.')
 
 
 hmax = QgsRasterLayer(VALIDA_FOLDER + '/' + 'hmax.tif', "hmax")
