@@ -3,19 +3,20 @@ setwd('/home/gorgens/Downloads/validate_R')
 require(lidR) 
 require(raster) 
 require(rgdal) 
-require(gdalUtils)
+require(sf)
 # ref: https://jean-romain.github.io/lidRbook/tba.html 
 
-PROJETO = 'ATT_A01_ID34'
+PROJETO = 'ST3_A01_ID7'
+EPSG = 31982
 
-SHAPE_FOLDER = 
-SHAPE = 
+SHAPE = shapefile('/home/gorgens/Downloads/validate_R/shape/LiDAR 2021 Paisagens Sustentáveis.shp')
+SHAPE = spTransform(SHAPE, crs("+init=epsg:31981"))
+SHAPE = subset(SHAPE, id = 7)
 
 NP_FOLDER = paste0("/home/gorgens/Downloads/validate_R/", PROJETO, "/5 - Las Files")
 DTM_FOLDER = paste0("/home/gorgens/Downloads/validate_R/", PROJETO, "/6 - MDT - GRD")
 VALIDA_FOLDER = paste0("/home/gorgens/Downloads/validate_R/_validacao/", PROJETO)
 
-crs = QgsCoordinateReferenceSystem("EPSG:31982")
 dir.create(VALIDA_FOLDER)
 
 # las check
@@ -34,11 +35,12 @@ opt_chunk_size(ctg) = 1000
 dir.create(paste0(VALIDA_FOLDER,"/density"))
 opt_output_files(ctg) = paste0(VALIDA_FOLDER,"/density/density_{ID}")
 density = grid_density(ctg, 1)
+crs(density) = crs("+init=epsg:31981")
 
 lowDensity = (density < 4)
-lowDensity <- crop(lowDensity, crop_extent)
+lowDensity = crop(lowDensity, SHAPE)
+lowDensity = mask(lowDensity, SHAPE)
 writeRaster(lowDensity, paste0(VALIDA_FOLDER,"/lowDensity.tif"))
-
 
 # unir tiles de terreno
 grds = list.files(DTM_FOLDER)
