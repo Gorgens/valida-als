@@ -43,11 +43,13 @@ lowDensity = mask(lowDensity, SHAPE)
 writeRaster(lowDensity, paste0(VALIDA_FOLDER,"/lowDensity.tif"))
 
 # unir tiles de terreno
-grds = list.files(DTM_FOLDER)
+grds = list.files(DTM_FOLDER, pattern = "\\.grd$")
 mdtEntregue = raster(paste0(DTM_FOLDER, "/", grds[1]))
 for(r in grds[-1]){
-	mdtEntregue = raster::merge(mdtEntregue, r)
+	rtemp = raster(paste0(DTM_FOLDER, "/", r))
+	mdtEntregue = raster::merge(mdtEntregue, rtemp)
 }
+crs(mdtEntregue) = crs("+init=epsg:31981")
 writeRaster(mdtEntregue, paste0(VALIDA_FOLDER,"/mdtEntregue.tif"))
 slope <- terrain(mdtEntregue, opt='slope')
 aspect <- terrain(mdtEntregue, opt='aspect')
@@ -57,34 +59,41 @@ mdtHill <- hillShade(slope, aspect,
 writeRaster(mdtHill, paste0(VALIDA_FOLDER,"/mdtHill.tif"))
 
 # ground classification 
-ctg = readLAScatalog("E:/dados_brutos/eba/las/") 
+ctg = readLAScatalog(NP_FOLDER) 
 opt_chunk_buffer(ctg) = 100 
 opt_chunk_size(ctg) = 1000 
-opt_output_files(ctg) = "E:/dados_brutos/eba/class/NP_T-0560_gndClass{ID}" 
+dir.create(paste0(VALIDA_FOLDER,"/class"))
+opt_output_files(ctg) = paste0(VALIDA_FOLDER,"/class/gndClass_{ID}")
 mycsf = csf(sloop_smooth = TRUE, class_threshold = 1, cloth_resolution = 1, time_step = 1) 
 classified_ctg = classify_ground(ctg, mycsf) 
 
 # digital terrain model creation 
-ctg = readLAScatalog("E:/dados_brutos/eba/class/") 
+ctg = readLAScatalog(paste0(VALIDA_FOLDER,"/class")) 
 opt_chunk_buffer(ctg) = 30 
 opt_chunk_size(ctg) = 1000 
-opt_output_files(ctg) = "E:/dados_brutos/eba/mdt/NP_T-0560_dtm{ID}" 
+dir.create(paste0(VALIDA_FOLDER,"/mdt"))
+opt_output_files(ctg) = paste0(VALIDA_FOLDER,"/mdt/mdt_{ID}")
 dtm_ctg = grid_terrain(ctg, res = 1, algorithm = knnidw(k = 10L, p = 2)) 
 
 # normalize cloud 
-ctg = readLAScatalog("E:/dados_brutos/eba/class/") 
+ctg = readLAScatalog(paste0(VALIDA_FOLDER,"/class")) 
 opt_chunk_buffer(ctg) = 30 
 opt_chunk_size(ctg) = 1000 
-opt_output_files(ctg) = "E:/dados_brutos/eba/norm/NP_T-0560_norm{ID}" 
+dir.create(paste0(VALIDA_FOLDER,"/norm"))
+opt_output_files(ctg) = paste0(VALIDA_FOLDER,"/norm/norm_{ID}")
 norm_ctg = normalize_height(ctg, dtm_ctg) 
 
 # canopy height model creation 
-ctg = readLAScatalog("E:/dados_brutos/eba/norm/") 
+ctg = readLAScatalog(paste0(VALIDA_FOLDER,"/norm")) 
 opt_chunk_buffer(ctg) = 30 
 opt_chunk_size(ctg) = 1000 
-opt_output_files(ctg) = "E:/dados_brutos/eba/chm/NP_T-0560_chm{ID}" 
-chm_ctg = grid_canopy(ctg, 0.5, pitfree(subcircle = 0.2)) 
+dir.create(paste0(VALIDA_FOLDER,"/chm"))
+opt_output_files(ctg) = paste0(VALIDA_FOLDER,"/chm/chm_{ID}")
+chm_ctg = grid_canopy(ctg, 0.5, pitfree(subcircle = 0.2))
 
-# extract trees 
-trees = find_trees(ctg, lmf(11)) 
-writeOGR(trees, ".", "NP_T-0560_trees", driver = "ESRI Shapefile")
+# histogram terrain differences
+rtemp = crop(mdtEntregue, SHAPE)
+rtemp = mask(rtemp, SHAPE)
+rtemp2 = crop(dtm_ctg, SHAPE)
+rtemp2 = mask(rtemp2, SHAPE)
+hist(rtemp - rtemp2)
