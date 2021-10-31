@@ -1,0 +1,1 @@
+c:\FUSION\LAStools\bin\laszip -i C:\FUSION\GED_A01_ID37\*.las -odir "c:\FUSION\GED_A01_ID37" -olaz -lax -append
