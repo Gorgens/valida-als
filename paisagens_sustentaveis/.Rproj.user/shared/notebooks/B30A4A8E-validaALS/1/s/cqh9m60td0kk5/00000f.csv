@@ -1,0 +1,7 @@
+"0","paste0(LASTOOLS_FOLDER, '\\lasinfo -cpu64 -i ', '""', NP_FOLDER, '\\*.las"" -merged -odir ',
+             VALIDA_FOLDER, ' -o ""report.txt"" -cd -histo gps_time 20')
+"
+"1","[1]"
+"1"," ""C:\\LAStools/bin\\lasinfo -cpu64 -i \""D:\\campanha_2021\\ATT_A01_ID34\\5 - Las Files\\*.las\"" -merged -odir D:\\campanha_2021\\ATT_A01_ID34\\validacao -o \""report.txt\"" -cd -histo gps_time 20"""
+"1","
+"

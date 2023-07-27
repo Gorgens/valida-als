@@ -1,0 +1,4 @@
+"0","userCrs = CRS('+init=EPSG:31982')
+"
+"2","Error in CRS(""+init=EPSG:31982"") : could not find function ""CRS""
+"

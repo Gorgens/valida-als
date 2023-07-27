@@ -1,0 +1,119 @@
+---
+title: "Validação de dados ALS"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+require(terra)
+require(raster)
+require(rasterDT)
+require(dplyr)
+require(rasterVis)
+require(ggplot2)
+require(tmap)
+require(tmaptools)
+require(ggmap)
+require(RColorBrewer)
+require(rgdal)
+require(sp)
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
+```{r}
+FUSION_FOLDER = 'C:\\FUSION'
+LASTOOLS_FOLDER = 'C:\\LAStools/bin'
+
+PROJETO = 'ATT_A01_ID34'
+
+BASE = paste0("D:\\campanha_2021\\",PROJETO)
+NP_FOLDER = paste0(BASE, "\\5 - Las Files")
+NP_DTM_FOLDER = paste0(BASE, "\\7 - GROUND - Ascii")
+DTM_FOLDER = paste0(BASE, "\\6 - MDT - GRD")
+DTM_PREVIOUS = paste0(BASE, "\\MDT_ANTERIOR")
+
+setwd(BASE)
+dir.create('validacao')
+
+VALIDA_FOLDER = paste0(BASE, "\\validacao")
+userCrs = '+init=EPSG:31982'
+```
+
+
+```{r}
+shell(paste0(FUSION_FOLDER,'/Catalog /drawtiles /countreturns /density:1,4,8 ',
+             '"',NP_FOLDER, '\\*.las" ', VALIDA_FOLDER, '\\catalog'))
+```
+
+```{r}
+shell(paste0(LASTOOLS_FOLDER, '\\lasinfo -cpu64 -i ', '"', NP_FOLDER, '\\*.las" -merged -odir ',
+             VALIDA_FOLDER, ' -o "report.txt" -cd -histo gps_time 20'))
+```
+
+```{r}
+shell(paste0(FUSION_FOLDER, '\\ReturnDensity /ascii ', VALIDA_FOLDER, '/', 'density.asc 1 ',
+             '"', NP_FOLDER, '\\*.las"'))
+```
+
+
+```{r}
+img = list.files(NP_DTM_FOLDER, pattern = "*.flt", full.names=TRUE)
+ic = sprc(lapply(img, rast))
+dtm_entregue = mosaic(ic)
+writeRaster(dtm_entregue, paste0(VALIDA_FOLDER,"\\dtm_entregue.tif", crs = CRS(userCrs)))
+```
+
+```{r}
+hillshade = hillShade(r)
+```
+
+```{r}
+shell(paste(FUSION_FOLDER, '\\GroundFilter ', VALIDA_FOLDER, '\\', 'ground.laz ',
+            '8 ', '"', NP_FOLDER, '\\*.las"'))
+                   
+shell(paste0(FUSION_FOLDER, '\\GridSurfaceCreate ', VALIDA_FOLDER, '\\', 'mdtCriado.dtm ',
+             '1 m m 0 0 0 0 ', VALIDA_FOLDER, '\\ground.laz'))
+                   
+shell(paste0(FUSION_FOLDER, '\\DTM2ASCII ', VALIDA_FOLDER, '\\', 'mdtCriado.dtm ',
+             VALIDA_FOLDER, '\\', 'mdtCriado.asc'))
+dtm_calculado = raster(paste0(VALIDA_FOLDER, '\\', 'mdtCriado.asc'))
+```
+
+
+Recriar mdt entregue e calculado numa mesma grade de referência.
+
+```{r}
+referencia = raster(round(extent(r)), crs = CRS(userCrs), res=1)
+dtm_entregue = resample(dtm_entregue, referencia, method='ngb')
+dtm_calculado = resample(dtm_calculado, referencia, method='ngb')
+```
+
+```{r}
+hist(dtm_entregue - dtm_calculado)
+```
+
+```{r}
+files = list.files(NP_FOLDER, pattern = "*.las", full.names=TRUE)
+
+for(filename in files){
+    shell(paste0(FUSION_FOLDER, '\\GridMetrics /nointensity /nocsv /raster:max /ascii ',
+                 VALIDA_FOLDER, '\\', 'mdtCriado.dtm 10 1 ', VALIDA_FOLDER, '\\',
+                 file_path_sans_ext(basename(filename)), '.asc ', filename))
+}
+```
+
+
+```{r}
+img = list.files(VALIDA_FOLDER, pattern = "*_max.asc", full.names=TRUE)
+ic = sprc(lapply(img, rast))
+hmax = mosaic(ic)
+writeRaster(hmax, paste0(VALIDA_FOLDER,"\\hmax.tif", crs = CRS(userCrs)))
+```
