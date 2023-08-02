@@ -1,0 +1,112 @@
+---
+title: "Validação de dados ALS"
+output: html_notebook
+---
+
+# Intalação de pacotes 
+
+```{r pacote, warning=FALSE, message=FALSE}
+require(terra)
+require(raster)
+require(rasterDT)
+require(dplyr)
+require(rasterVis)
+require(ggplot2)
+require(tmap)
+require(tmaptools)
+require(ggmap)
+require(RColorBrewer)
+require(rgdal)
+require(sp)
+```
+
+# Parametrização de ambiente
+
+```{r ambiente}
+FUSION_FOLDER = 'C:\\FUSION'
+LASTOOLS_FOLDER = 'C:\\LAStools/bin'
+
+PROJETO = '14_NP_T-0822'
+
+BASE = paste0("C:\\FUSION\\SAI\\",PROJETO)
+NP_FOLDER = paste0(BASE, "\\01 - NUVEM DE PONTOS")
+NP_DTM_FOLDER = paste0(BASE, "\\02 - MDT")
+DTM_FOLDER = paste0(BASE, "\\02 - MDT")
+
+dir.create('validacao')
+
+VALIDA_FOLDER = paste0(BASE, "\\validacao")
+userCrs = '+init=EPSG:31982'
+```
+
+# Relatório base
+
+```{r catalog}
+shell(paste0(FUSION_FOLDER,'\\Catalog /drawtiles /countreturns /density:1,4,8 ', '"',NP_FOLDER, '\\*.las" ', VALIDA_FOLDER, '\\catalog'))
+```
+
+```{r lasinfo}
+shell(paste0(LASTOOLS_FOLDER, '\\lasinfo -cpu64 -i ', '"', NP_FOLDER, '\\*.las" -merged -odir ',VALIDA_FOLDER, ' -o "report.txt" -cd -histo gps_time 20'))
+```
+
+# Calcula mapa de densidade de retornos
+
+```{r densidade}
+shell(paste0(FUSION_FOLDER, '\\ReturnDensity /ascii ', VALIDA_FOLDER, '\\', 'density.asc 1 ', '"', NP_FOLDER, '\\*.las"'))
+```
+
+# Modelo digital de terreno
+
+## Modelo entregue
+
+```{r mosaicDTM}
+img = list.files(NP_DTM_FOLDER, pattern = "*.flt", full.names=TRUE)
+ic = sprc(lapply(img, rast))
+dtm_entregue = mosaic(ic)
+writeRaster(dtm_entregue, paste0(VALIDA_FOLDER,"\\dtm_entregue.tif"))
+rm(img, ic)
+```
+
+## Modelo criado
+
+```{r mdtCriado}
+shell(paste0(FUSION_FOLDER, '\\GroundFilter ', VALIDA_FOLDER, '\\', 'ground.laz ', '8 ', '"', NP_FOLDER, '\\*.las"'))
+                   
+shell(paste0(FUSION_FOLDER, '\\GridSurfaceCreate ', VALIDA_FOLDER, '\\', 'mdtCriado.dtm ', '1 m m 0 0 0 0 ', VALIDA_FOLDER, '\\ground.laz'))
+                   
+shell(paste0(FUSION_FOLDER, '\\DTM2ASCII ', VALIDA_FOLDER, '\\', 'mdtCriado.dtm ',VALIDA_FOLDER, '\\', 'mdtCriado.asc'))
+```
+
+# Diferença entre MDT
+
+```
+
+dtm_calculado = raster(paste0(VALIDA_FOLDER, '\\', 'mdtCriado.asc'))
+referencia = raster(round(extent(dtm_entregue)), crs = CRS(userCrs), res=1)
+
+dtm_entregue = resample(dtm_entregue, referencia, method='ngb')
+dtm_calculado = resample(dtm_calculado, referencia, method='ngb')
+```
+
+```
+hist(dtm_entregue - dtm_calculado)
+```
+
+# Modelo digital de altura máxima
+```{r hmax}
+files = list.files(NP_FOLDER, pattern = "*.las", full.names=TRUE)
+
+for(filename in files){
+    shell(paste0(FUSION_FOLDER, '\\GridMetrics /nointensity /nocsv /raster:max /ascii ',
+                 VALIDA_FOLDER, '\\', 'mdtCriado.dtm 10 1 ', VALIDA_FOLDER, '\\',
+                 tools::file_path_sans_ext(basename(filename)), '.asc ', '"', NP_FOLDER, '\\',
+                 basename(filename), '"'))
+}
+```
+
+```{r mosaicHmax}
+img = list.files(VALIDA_FOLDER, pattern = "*_max.asc", full.names=TRUE)
+ic = sprc(lapply(img, rast))
+hmax = mosaic(ic)
+writeRaster(hmax, paste0(VALIDA_FOLDER,"\\hmax.tif"))
+```

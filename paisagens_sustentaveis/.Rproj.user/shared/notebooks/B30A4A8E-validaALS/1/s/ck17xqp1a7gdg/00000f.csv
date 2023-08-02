@@ -1,7 +1,0 @@
-"0","paste0(FUSION_FOLDER,'/Catalog /drawtiles /countreturns /density:1,4,8 ',
-             '""',NP_FOLDER, '\\*.las"" ', VALIDA_FOLDER, '\\catalog')
-"
-"1","[1]"
-"1"," ""C:\\FUSION/Catalog /drawtiles /countreturns /density:1,4,8 \""D:\\campanha_2021\\ATT_A01_ID34\\5 - Las Files\\*.las\"" D:\\campanha_2021\\ATT_A01_ID34\\validacao\\catalog"""
-"1","
-"

@@ -1,0 +1,162 @@
+---
+title: "validacaoPaisagens2023"
+author: "Eric Gorgens"
+format: html
+editor: visual
+---
+
+## Script de conferência de dados recebidos
+
+Campanha Paisagens Sustentáveis 2023.
+
+## Instala pacotes
+
+Instala pacotes necessários para realizar conferência.
+
+```{r}
+require(terra)
+require(raster)
+require(rasterDT)
+require(dplyr)
+require(rasterVis)
+require(ggplot2)
+require(tmap)
+require(tmaptools)
+require(ggmap)
+require(RColorBrewer)
+require(rgdal)
+require(sp)
+```
+
+## Prepara ambiente
+
+```{r}
+FUSION_FOLDER = 'C:\\FUSION'
+LASTOOLS_FOLDER = 'C:\\LAStools/bin'
+
+PROJETO = '14_NP_T-0822'
+
+BASE = paste0("C:\\FUSION\\SAI\\",PROJETO)
+NP_FOLDER = paste0(BASE, "\\01 - NUVEM DE PONTOS")
+NP_DTM_FOLDER = paste0(BASE, "\\02 - MDT")
+DTM_FOLDER = paste0(BASE, "\\02 - MDT")
+
+result <- tryCatch({
+  dir.create('validacao')
+}, error = function(e) {
+  print("Check the error. You may need to run again this script.")
+  print(e)
+})
+
+
+VALIDA_FOLDER = paste0(BASE, "\\validacao")
+```
+
+## Metados das nuvens entregues
+
+```{r}
+result <- tryCatch({
+  shell(paste0(FUSION_FOLDER,'\\Catalog /drawtiles /countreturns /density:1,4,8 ', '"',NP_FOLDER, '\\*.las" ', VALIDA_FOLDER, '\\catalog'))
+}, error = function(e) {
+  # Custom action to be taken if an error occurs
+  # For example, print an error message
+  print("Check the error. You may need to run again this script.")
+  print(e)
+})
+```
+
+```{r}
+result <- tryCatch({
+  shell(paste0(LASTOOLS_FOLDER, '\\lasinfo -cpu64 -i ', '"', NP_FOLDER, '\\*.las" -merged -odir ',VALIDA_FOLDER, ' -o "report.txt" -cd -histo gps_time 20'))
+}, error = function(e) {
+  # Custom action to be taken if an error occurs
+  # For example, print an error message
+  print("Check the error. You may need to run again this script.")
+  print(e)
+})
+```
+
+## Densidade de retornos
+
+```{r}
+result <- tryCatch({
+  shell(paste0(FUSION_FOLDER, '\\ReturnDensity /ascii ', VALIDA_FOLDER, '\\', 'density.asc 1 ', '"', NP_FOLDER, '\\*.las"'))
+}, error = function(e) {
+  # Custom action to be taken if an error occurs
+  # For example, print an error message
+  print("Check the error. You may need to run again this script.")
+  print(e)
+})
+```
+
+## Modelo digital de terreno
+
+```{r}
+result <- tryCatch({
+  img = list.files(NP_DTM_FOLDER, pattern = "*.flt", full.names=TRUE)
+  ic = sprc(lapply(img, rast))
+  dtm_entregue = mosaic(ic)
+  writeRaster(dtm_entregue, paste0(VALIDA_FOLDER,"\\dtm_entregue.tif"))
+  rm(img, ic)
+}, error = function(e) {
+  print("Check the error. You may need to run again this script.")
+  print(e)
+})
+
+```
+
+```{r}
+result <- tryCatch({
+  shell(paste0(FUSION_FOLDER, '\\GroundFilter ', VALIDA_FOLDER, '\\', 'ground.laz ', '8 ', '"', NP_FOLDER, '\\*.las"'))
+                   
+}, error = function(e) {
+  print("Check the error. You may need to run again this script.")
+  print(e)
+})
+
+result <- tryCatch({
+
+  shell(paste0(FUSION_FOLDER, '\\GridSurfaceCreate ', VALIDA_FOLDER, '\\', 'mdtCriado.dtm ', '1 m m 0 0 0 0 ', VALIDA_FOLDER, '\\ground.laz'))
+
+}, error = function(e) {
+  print("Check the error. You may need to run again this script.")
+  print(e)
+})
+
+result <- tryCatch({
+  shell(paste0(FUSION_FOLDER, '\\DTM2ASCII ', VALIDA_FOLDER, '\\', 'mdtCriado.dtm ',VALIDA_FOLDER, '\\', 'mdtCriado.asc'))
+}, error = function(e) {
+  print("Check the error. You may need to run again this script.")
+  print(e)
+})
+```
+
+## Modelo digital de altura máxima
+
+```{r}
+result <- tryCatch({
+  files = list.files(NP_FOLDER, pattern = "*.las", full.names=TRUE)
+  
+  for(filename in files){
+      shell(paste0(FUSION_FOLDER, '\\GridMetrics /nointensity /nocsv /raster:max /ascii ',
+                   VALIDA_FOLDER, '\\', 'mdtCriado.dtm 10 1 ', VALIDA_FOLDER, '\\',
+                   tools::file_path_sans_ext(basename(filename)), '.asc ', '"', NP_FOLDER, '\\',
+                   basename(filename), '"'))
+  }
+}, error = function(e) {
+  print("Check the error. You may need to run again this script.")
+  print(e)
+})
+```
+
+```{r}
+result <- tryCatch({
+  img = list.files(VALIDA_FOLDER, pattern = "*_max.asc", full.names=TRUE)
+  ic = sprc(lapply(img, rast))
+  hmax = mosaic(ic)
+  writeRaster(hmax, paste0(VALIDA_FOLDER,"\\hmax.tif"))
+}, error = function(e) {
+  print("Check the error. You may need to run again this script.")
+  print(e)
+})
+```

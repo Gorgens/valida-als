@@ -1,28 +1,27 @@
 {
-    "id": "51994766",
-    "path": "~/GitHub/valida-als/paisagens_sustentaveis/validaALS.Rmd",
-    "project_path": "validaALS.Rmd",
+    "id": "5A28DDAC",
+    "path": "~/GitHub/valida-als/paisagens_sustentaveis/validacaoPaisagens2023.Rmd",
+    "project_path": "validacaoPaisagens2023.Rmd",
     "type": "r_markdown",
-    "hash": "1324330064",
+    "hash": "3847713132",
     "contents": "",
     "dirty": false,
-    "created": 1690466120754.0,
+    "created": 1690974321511.0,
     "source_on_save": false,
     "relative_order": 1,
     "properties": {
-        "tempName": "Untitled1",
         "chunk_output_type": "inline",
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "117,73",
-        "scrollLine": "95"
+        "cursorPosition": "107,0",
+        "scrollLine": "87"
     },
     "folds": "",
-    "lastKnownWriteTime": 1690468796,
+    "lastKnownWriteTime": 1690815030,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1690468796464,
+    "last_content_update": 1690815030,
     "read_only": false,
     "read_only_alternatives": []
 }
